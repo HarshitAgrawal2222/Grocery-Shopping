@@ -1,24 +1,30 @@
 import mongoose from "mongoose";
 
-let isConnected = false;
-
 const connectDB = async () => {
-  if (isConnected) {
-    return;
-  }
+    try {
+        // Already connected
+        if (mongoose.connection.readyState === 1) {
+            console.log("✅ MongoDB already connected");
+            return;
+        }
 
-  try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI, {
-      dbName: "greencart",
-    });
+        // Check environment variable
+        if (!process.env.MONGODB_URI) {
+            throw new Error("MONGODB_URI is not defined");
+        }
 
-    isConnected = conn.connections[0].readyState === 1;
+        await mongoose.connect(process.env.MONGODB_URI, {
+            dbName: "greencart",
+            serverSelectionTimeoutMS: 10000,
+        });
 
-    console.log("✅ Database Connected");
-  } catch (error) {
-    console.error("❌ DB Error:", error.message);
-    throw error; // IMPORTANT for Vercel debugging
-  }
+        console.log("✅ Database Connected");
+        console.log("MongoDB readyState:", mongoose.connection.readyState);
+
+    } catch (error) {
+        console.error("❌ DB Error:", error.message);
+        throw error;
+    }
 };
 
 export default connectDB;
