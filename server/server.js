@@ -27,15 +27,18 @@ app.use(cors({
     credentials: true
 }));
 
+// Stripe webhook
 app.post(
     '/stripe',
     express.raw({ type: 'application/json' }),
     stripeWebhooks
 );
 
+// Middleware
 app.use(express.json());
 app.use(cookieParser());
 
+// Routes
 app.get('/', (req, res) => {
     res.send('API is Working');
 });
@@ -47,4 +50,18 @@ app.use('/api/cart', cartRouter);
 app.use('/api/address', addressRouter);
 app.use('/api/order', orderRouter);
 
+// Initialize database and Cloudinary
+await connectDB();
+await connectCloudinary();
+
+// Local development
+if (process.env.NODE_ENV !== 'production') {
+    const port = process.env.PORT || 4000;
+
+    app.listen(port, () => {
+        console.log(`Server is running on http://localhost:${port}`);
+    });
+}
+
+// Vercel
 export default app;
