@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useAppContext } from '../../context/AppContext';
 import toast from 'react-hot-toast';
-import axios from "axios"; // ✅ added
+import axios from "axios";
 
 const SellerLogin = () => {
     const { isSeller, setIsSeller, navigate } = useAppContext()
@@ -10,36 +10,42 @@ const SellerLogin = () => {
     const [password, setPassword] = useState("");
 
     const onSubmitHandler = async (event) => {
-       try {
-        event.preventDefault();
+        try {
+            event.preventDefault();
 
-        const { data } = await axios.post(
-            '/api/seller/login',
-            { email, password },
-            { withCredentials: true } // ✅ IMPORTANT
-        );
+            const { data } = await axios.post(
+                '/api/seller/login',
+                { email, password }
+            );
 
-        if(data.success){
-            setIsSeller(true)
-            navigate('/seller')
-        }else{
-            toast.error(data.message)
+            if (data.success) {
+                setIsSeller(true);
+                navigate('/seller');
+            } else {
+                toast.error(data.message);
+            }
+
+        } catch (error) {
+            console.error("Seller login error:", error);
+            toast.error(
+                error.response?.data?.message || error.message
+            );
         }
-
-       } catch (error) {
-         toast.error(error.response?.data?.message || error.message); // ✅ fixed
-       }
     }
 
     useEffect(() => {
         if (isSeller) {
             navigate("/seller");
         }
-    }, [isSeller]);
+    }, [isSeller, navigate]);
 
     return !isSeller && (
-        <form onSubmit={onSubmitHandler} className='min-h-screen flex items-center text-sm text-gray-600'>
+        <form
+            onSubmit={onSubmitHandler}
+            className='min-h-screen flex items-center text-sm text-gray-600'
+        >
             <div className='flex flex-col gap-5 m-auto items-start p-8 py-12 min-w-80 sm:min-w-88 rounded-lg shadow-xl border-gray-200'>
+
                 <p className='text-2xl font-medium m-auto'>
                     <span className='text-primary'>Seller</span> Login
                 </p>
@@ -68,9 +74,13 @@ const SellerLogin = () => {
                     />
                 </div>
 
-                <button className='bg-primary text-white w-full py-2 rounded-md cursor-pointer'>
+                <button
+                    type="submit"
+                    className='bg-primary text-white w-full py-2 rounded-md cursor-pointer'
+                >
                     Login
                 </button>
+
             </div>
         </form>
     )
