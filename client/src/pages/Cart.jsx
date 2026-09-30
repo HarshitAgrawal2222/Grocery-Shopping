@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
-import { useAppContext } from "../context/AppContext";
 import { assets } from "../assets/assets";
+import { useAppContext } from "../context/AppContext";
 import toast from "react-hot-toast";
 
 const Cart = () => {
-
   const {
     products,
     currency,
@@ -16,7 +15,7 @@ const Cart = () => {
     getCartAmount,
     axios,
     user,
-    setCartItems
+    setCartItems,
   } = useAppContext();
 
   const [cartArray, setCartArray] = useState([]);
@@ -25,7 +24,6 @@ const Cart = () => {
   const [selectedAddress, setselectedAddress] = useState(null);
   const [paymentOption, setPaymentOption] = useState("COD");
 
-  // Convert cart object → array
   const getCart = () => {
     let tempArray = [];
 
@@ -43,31 +41,32 @@ const Cart = () => {
     setCartArray(tempArray);
   };
 
-  // Fetch user addresses
   const getUserAddress = async () => {
     try {
-      const { data } = await axios.get(
-        "/api/address/get",
-        { withCredentials: true }
-      );
+      const { data } = await axios.get("/api/address/get", {
+        withCredentials: true,
+      });
 
       if (data.success) {
-        setAddresses(data.addresses);
+        setAddresses(data.addresses || []);
 
-        if (data.addresses.length > 0) {
+        if (data.addresses && data.addresses.length > 0) {
           setselectedAddress(data.addresses[0]);
+        } else {
+          setselectedAddress(null);
         }
-
       } else {
         toast.error(data.message);
       }
-
     } catch (error) {
-      toast.error(error.message);
+      toast.error(
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to load addresses"
+      );
     }
   };
 
-  // Place order
   const placeOrder = async () => {
     try {
       if (!selectedAddress) {
@@ -78,17 +77,21 @@ const Cart = () => {
         return toast.error("Cart is empty");
       }
 
+      const orderData = {
+        items: cartArray.map((item) => ({
+          product: item._id,
+          quantity: item.quantity,
+        })),
+        address: selectedAddress,
+      };
+
       if (paymentOption === "COD") {
         const { data } = await axios.post(
           "/api/order/cod",
+          orderData,
           {
-            items: cartArray.map((item) => ({
-              product: item._id,
-              quantity: item.quantity,
-            })),
-            address: selectedAddress,
-          },
-          { withCredentials: true }
+            withCredentials: true,
+          }
         );
 
         if (data.success) {
@@ -98,18 +101,13 @@ const Cart = () => {
         } else {
           toast.error(data.message);
         }
-
       } else {
         const { data } = await axios.post(
           "/api/order/stripe",
+          orderData,
           {
-            items: cartArray.map((item) => ({
-              product: item._id,
-              quantity: item.quantity,
-            })),
-            address: selectedAddress,
-          },
-          { withCredentials: true }
+            withCredentials: true,
+          }
         );
 
         if (data.success) {
@@ -118,9 +116,12 @@ const Cart = () => {
           toast.error(data.message);
         }
       }
-
     } catch (error) {
-      toast.error(error.message);
+      toast.error(
+        error.response?.data?.message ||
+          error.message ||
+          "Failed to place order"
+      );
     }
   };
 
@@ -135,178 +136,285 @@ const Cart = () => {
       getUserAddress();
     }
   }, [user]);
-  
-  useEffect(() => {
-    getUserAddress();
-  }, []); // ✅ ADD THIS
 
   return products.length > 0 && cartItems ? (
-    <div className="flex flex-col md:flex-row mt-16">
+    <div className="w-full px-4 sm:px-6 md:px-10 lg:px-16 xl:px-24 mt-8 md:mt-16 pb-10">
+      <div className="flex flex-col lg:flex-row gap-8 lg:gap-10">
 
-      {/* LEFT SIDE */}
-      <div className='flex-1 max-w-4xl'>
-        <h1 className="text-3xl font-medium mb-6">
-          Shopping Cart <span className="text-sm text-primary">{getCartCount()} Items</span>
-        </h1>
+        <div className="flex-1 min-w-0">
 
-        <div className="grid grid-cols-[2fr_1fr_1fr] text-gray-500 pb-3">
-          <p>Product Details</p>
-          <p className="text-center">Subtotal</p>
-          <p className="text-center">Action</p>
+          <h1 className="text-2xl sm:text-3xl font-medium mb-5">
+            Shopping Cart{" "}
+            <span className="text-sm text-primary">
+              {getCartCount()} Items
+            </span>
+          </h1>
+
+          <div className="hidden md:grid grid-cols-[2fr_1fr_1fr] text-gray-500 pb-3 border-b">
+            <p>Product Details</p>
+            <p className="text-center">Subtotal</p>
+            <p className="text-center">Action</p>
+          </div>
+
+          <div className="space-y-4 mt-3">
+
+            {cartArray.map((product) => (
+              <div
+                key={product._id}
+                className="border border-gray-200 rounded-lg p-3 sm:p-4"
+              >
+
+                <div className="md:grid md:grid-cols-[2fr_1fr_1fr] md:items-center">
+
+                  <div
+                    onClick={() => {
+                      navigate(
+                        `/products/${product.category.toLowerCase()}/${product._id}`
+                      );
+                      scrollTo(0, 0);
+                    }}
+                    className="flex items-center gap-3 sm:gap-4 cursor-pointer min-w-0"
+                  >
+
+                    <img
+                      src={product.image[0]}
+                      className="w-20 h-20 sm:w-24 sm:h-24 object-contain border rounded-md shrink-0"
+                      alt={product.name}
+                    />
+
+                    <div className="min-w-0">
+
+                      <p className="font-semibold text-sm sm:text-base truncate">
+                        {product.name}
+                      </p>
+
+                      <p className="text-xs sm:text-sm text-gray-500 mt-1">
+                        Weight: {product.weight || "N/A"}
+                      </p>
+
+                      <select
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) =>
+                          updateCartItems(
+                            product._id,
+                            Number(e.target.value)
+                          )
+                        }
+                        value={cartItems[product._id]}
+                        className="border border-gray-300 rounded px-2 py-1 mt-2 text-sm outline-none"
+                      >
+                        {[...Array(9)].map((_, i) => (
+                          <option key={i} value={i + 1}>
+                            {i + 1}
+                          </option>
+                        ))}
+                      </select>
+
+                    </div>
+                  </div>
+
+                  <p className="hidden md:block text-center font-medium">
+                    {currency}
+                    {product.offerPrice * product.quantity}
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => removeFromCart(product._id)}
+                    className="hidden md:block cursor-pointer"
+                  >
+                    <img
+                      src={assets.remove_icon}
+                      className="w-5 mx-auto"
+                      alt="remove"
+                    />
+                  </button>
+
+                </div>
+
+                <div className="flex md:hidden items-center justify-between mt-4 pt-3 border-t">
+
+                  <p className="font-semibold text-primary">
+                    {currency}
+                    {product.offerPrice * product.quantity}
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={() => removeFromCart(product._id)}
+                    className="flex items-center gap-2 text-red-500 text-sm cursor-pointer"
+                  >
+                    <img
+                      src={assets.remove_icon}
+                      className="w-4"
+                      alt="remove"
+                    />
+                    Remove
+                  </button>
+
+                </div>
+
+              </div>
+            ))}
+
+          </div>
+
+          <button
+            type="button"
+            onClick={() => navigate("/product")}
+            className="mt-6 text-primary hover:underline cursor-pointer text-sm sm:text-base"
+          >
+            ← Continue Shopping
+          </button>
+
         </div>
 
-        {cartArray.map((product, index) => (
-          <div key={index} className="grid grid-cols-[2fr_1fr_1fr] items-center pt-3">
+        <div className="w-full lg:max-w-[360px] lg:min-w-[320px] p-4 sm:p-5 border border-gray-200 rounded-lg h-fit">
 
-            <div
-              onClick={() => {
-                navigate(`/products/${product.category.toLowerCase()}/${product._id}`);
-                scrollTo(0, 0);
-              }}
-              className="flex items-center gap-4 cursor-pointer"
-            >
-              <img src={product.image[0]} className="w-20 h-20 object-cover" />
+          <h2 className="text-xl font-medium">
+            Order Summary
+          </h2>
 
-              <div>
-                <p className="font-semibold">{product.name}</p>
+          <div className="mt-5">
 
-                <div className="text-sm text-gray-500">
-                  <p>Weight: {product.weight || "N/A"}</p>
+            <p className="text-sm font-medium">
+              Delivery Address
+            </p>
 
-                  <select
-                    onChange={(e) =>
-                      updateCartItems(product._id, Number(e.target.value))
-                    }
-                    value={cartItems[product._id]}
-                  >
-                    {[...Array(9)].map((_, i) => (
-                      <option key={i} value={i + 1}>{i + 1}</option>
-                    ))}
-                  </select>
-                </div>
+            <div className="relative mt-2">
+
+              <div className="bg-gray-50 rounded-md p-3 text-sm text-gray-500 leading-6">
+
+                {selectedAddress ? (
+                  <>
+                    {selectedAddress.street},{" "}
+                    {selectedAddress.city}
+
+                    {selectedAddress.state &&
+                      `, ${selectedAddress.state}`}
+
+                    , {selectedAddress.zipcode},{" "}
+                    {selectedAddress.country}
+
+                    <br />
+
+                    Ph: {selectedAddress.phone}
+                  </>
+                ) : (
+                  "No address found"
+                )}
+
               </div>
+
+              <button
+                type="button"
+                onClick={() => setShowAddress(!showAddress)}
+                className="text-primary text-sm mt-2 cursor-pointer"
+              >
+                Change
+              </button>
+
+              {showAddress && (
+                <div className="absolute left-0 right-0 bg-white border border-gray-200 shadow-md rounded-md mt-2 z-20 max-h-48 overflow-y-auto">
+
+                  {addresses.length > 0 ? (
+                    addresses.map((addr, index) => (
+                      <button
+                        type="button"
+                        key={addr._id || index}
+                        onClick={() => {
+                          setselectedAddress(addr);
+                          setShowAddress(false);
+                        }}
+                        className="block w-full text-left p-3 text-sm hover:bg-gray-100 cursor-pointer border-b last:border-b-0"
+                      >
+                        {addr.street}, {addr.city}
+                      </button>
+                    ))
+                  ) : (
+                    <p className="p-3 text-sm text-gray-500">
+                      No saved addresses
+                    </p>
+                  )}
+
+                </div>
+              )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAddress(false);
+                  navigate("/add-address");
+                }}
+                className="w-full text-primary text-sm text-center mt-3 cursor-pointer hover:underline"
+              >
+                + Add New Address
+              </button>
+
             </div>
 
-            <p className="text-center">
-              {currency}{product.offerPrice * product.quantity}
+            <p className="mt-6 text-sm font-medium">
+              Payment Method
             </p>
 
-            <button onClick={() => removeFromCart(product._id)}>
-              <img src={assets.remove_icon} className="w-5 mx-auto" />
-            </button>
+            <select
+              onChange={(e) => setPaymentOption(e.target.value)}
+              value={paymentOption}
+              className="w-full border border-gray-300 rounded-md p-2.5 mt-2 text-sm outline-none"
+            >
+              <option value="COD">
+                Cash On Delivery
+              </option>
+
+              <option value="Online">
+                Online Payment
+              </option>
+            </select>
 
           </div>
-        ))}
 
-        <button
-          onClick={() => navigate("/products")}
-          className="mt-6 text-primary"
-        >
-          Continue Shopping
-        </button>
+          <div className="mt-5 pt-4 border-t space-y-3 text-gray-600 text-sm">
 
-      </div>
+            <p className="flex justify-between">
+              <span>Price</span>
 
-      {/* RIGHT SIDE */}
-      <div className="max-w-[360px] w-full p-5 border ml-6">
-
-        <h2 className="text-xl font-medium">Order Summary</h2>
-
-        <div className="mt-4">
-
-          {/* ADDRESS */}
-          <p className="text-sm font-medium">Delivery Address</p>
-
-          <div className="relative mt-2">
-
-            <p className="text-gray-500">
-              {selectedAddress ? (
-                <>
-                  {selectedAddress.street}, {selectedAddress.city}
-                  {selectedAddress.state && `, ${selectedAddress.state}`},
-                  {selectedAddress.zipcode}, {selectedAddress.country}
-                  <br />
-                  Ph: {selectedAddress.phone}
-                </>
-              ) : "No address found"}
+              <span>
+                {currency}
+                {getCartAmount()}
+              </span>
             </p>
 
-            <button
-              onClick={() => setShowAddress(!showAddress)}
-              className="text-primary mt-1"
-            >
-              Change
-            </button>
+            <p className="flex justify-between">
+              <span>Tax</span>
 
-            {showAddress && (
-              <div className="absolute bg-white border w-full mt-2 z-10">
+              <span>
+                {currency}
+                {(getCartAmount() * 0.02).toFixed(2)}
+              </span>
+            </p>
 
-                {addresses.map((addr, index) => (
-                  <p
-                    key={index}
-                    onClick={() => {
-                      setselectedAddress(addr);
-                      setShowAddress(false);
-                    }}
-                    className="p-2 hover:bg-gray-100 cursor-pointer"
-                  >
-                    {addr.street}, {addr.city}
-                  </p>
-                ))}
+            <p className="flex justify-between font-semibold text-base text-gray-800 pt-2 border-t">
+              <span>Total</span>
 
-              </div>
-            )}
-
-            {/* ✅ ALWAYS VISIBLE */}
-            <p
-              onClick={() => navigate("/add-address")}
-              className="text-primary text-center mt-2 cursor-pointer"
-            >
-              + Add New Address
+              <span>
+                {currency}
+                {(getCartAmount() * 1.02).toFixed(2)}
+              </span>
             </p>
 
           </div>
 
-          {/* PAYMENT */}
-          <p className="mt-6 text-sm font-medium">Payment Method</p>
-
-          <select
-            onChange={(e) => setPaymentOption(e.target.value)}
-            className="w-full border p-2 mt-2"
+          <button
+            type="button"
+            onClick={placeOrder}
+            className="w-full mt-5 bg-primary hover:bg-primary-dull text-white py-2.5 rounded-md transition cursor-pointer"
           >
-            <option value="COD">Cash On Delivery</option>
-            <option value="Online">Online Payment</option>
-          </select>
+            Place Order
+          </button>
 
         </div>
-
-        {/* PRICE */}
-        <div className="mt-4 space-y-2 text-gray-600">
-          <p className="flex justify-between">
-            <span>Price</span>
-            <span>{currency}{getCartAmount()}</span>
-          </p>
-
-          <p className="flex justify-between">
-            <span>Tax</span>
-            <span>{currency}{(getCartAmount() * 0.02).toFixed(2)}</span>
-          </p>
-
-          <p className="flex justify-between font-semibold">
-            <span>Total</span>
-            <span>{currency}{(getCartAmount() * 1.02).toFixed(2)}</span>
-          </p>
-        </div>
-
-        <button
-          onClick={placeOrder}
-          className="w-full mt-4 bg-primary text-white py-2"
-        >
-          Place Order
-        </button>
 
       </div>
-
     </div>
   ) : null;
 };
