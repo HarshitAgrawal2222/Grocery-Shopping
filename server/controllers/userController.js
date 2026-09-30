@@ -1,134 +1,161 @@
-import User from "../models/User.js";
-import bcrypt from "bcryptjs";
-import jwt from "jsonwebtoken";
+import User from '../models/User.js'
+import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
 
-// Register
 export const register = async (req, res) => {
-  try {
-    let { name, email, password } = req.body;
+    try {
+        let { name, email, password } = req.body
 
-    email = email.toLowerCase();
+        email = email.toLowerCase()
 
-    if (!name || !email || !password) {
-      return res.json({ success: false, message: "Missing Details" });
+        if (!name || !email || !password) {
+            return res.json({
+                success: false,
+                message: 'Missing Details'
+            })
+        }
+
+        const existingUser = await User.findOne({ email })
+
+        if (existingUser) {
+            return res.json({
+                success: false,
+                message: 'User already exists'
+            })
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10)
+
+        const user = await User.create({
+            name,
+            email,
+            password: hashedPassword
+        })
+
+        const token = jwt.sign(
+            { id: user._id },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        )
+
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'none',
+            path: '/',
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        })
+
+        return res.json({
+            success: true,
+            user: {
+                email: user.email,
+                name: user.name
+            }
+        })
+    } catch (error) {
+        return res.json({
+            success: false,
+            message: error.message
+        })
     }
+}
 
-    const existingUser = await User.findOne({ email });
-
-    if (existingUser) {
-      return res.json({ success: false, message: "User already exists" });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = await User.create({
-      name,
-      email,
-      password: hashedPassword,
-    });
-
-    const token = jwt.sign(
-      { id: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    // ✅ FIXED COOKIE (IMPORTANT)
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    return res.json({
-      success: true,
-      user: {
-        email: user.email,
-        name: user.name,
-      },
-    });
-  } catch (error) {
-    return res.json({ success: false, message: error.message });
-  }
-};
-
-// Login
 export const login = async (req, res) => {
-  try {
-    let { email, password } = req.body;
+    try {
+        let { email, password } = req.body
 
-    email = email.toLowerCase();
+        email = email.toLowerCase()
 
-    if (!email || !password) {
-      return res.json({
-        success: false,
-        message: "Email and password are required",
-      });
+        if (!email || !password) {
+            return res.json({
+                success: false,
+                message: 'Email and password are required'
+            })
+        }
+
+        const user = await User.findOne({ email })
+
+        if (!user) {
+            return res.json({
+                success: false,
+                message: 'User not found'
+            })
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password)
+
+        if (!isMatch) {
+            return res.json({
+                success: false,
+                message: 'Wrong password'
+            })
+        }
+
+        const token = jwt.sign(
+            { id: user._id },
+            process.env.JWT_SECRET,
+            { expiresIn: '7d' }
+        )
+
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'none',
+            path: '/',
+            maxAge: 7 * 24 * 60 * 60 * 1000
+        })
+
+        return res.json({
+            success: true,
+            user: {
+                email: user.email,
+                name: user.name
+            }
+        })
+    } catch (error) {
+        return res.json({
+            success: false,
+            message: error.message
+        })
     }
+}
 
-    const user = await User.findOne({ email });
-
-    if (!user) {
-      return res.json({ success: false, message: "User not found" });
-    }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-
-    if (!isMatch) {
-      return res.json({ success: false, message: "Wrong password" });
-    }
-
-    const token = jwt.sign(
-      { id: user._id },
-      process.env.JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    // ✅ FIXED COOKIE (IMPORTANT)
-    res.cookie("token", token, {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-    });
-
-    return res.json({
-      success: true,
-      user: {
-        email: user.email,
-        name: user.name,
-      },
-    });
-  } catch (error) {
-    return res.json({ success: false, message: error.message });
-  }
-};
-
-// Check Auth
 export const isAuth = async (req, res) => {
-  try {
-    const user = await User.findById(req.userId).select("-password");
+    try {
+        const user = await User.findById(req.userId).select('-password')
 
-    return res.json({ success: true, user });
-  } catch (error) {
-    console.log(error.message);
-    return res.json({ success: false, message: error.message });
-  }
-};
+        return res.json({
+            success: true,
+            user
+        })
+    } catch (error) {
+        console.log(error.message)
 
-// Logout
+        return res.json({
+            success: false,
+            message: error.message
+        })
+    }
+}
+
 export const logout = async (req, res) => {
-  try {
-    // ✅ FIXED COOKIE CLEAR
-    res.clearCookie("token", {
-      httpOnly: true,
-      secure: true,
-      sameSite: "none",
-    });
+    try {
+        res.clearCookie('token', {
+            httpOnly: true,
+            secure: true,
+            sameSite: 'none',
+            path: '/'
+        })
 
-    return res.json({ success: true, message: "Logged Out" });
-  } catch (error) {
-    return res.json({ success: false, message: error.message });
-  }
-};
+        return res.json({
+            success: true,
+            message: 'Logged Out'
+        })
+    } catch (error) {
+        return res.json({
+            success: false,
+            message: error.message
+        })
+    }
+}
