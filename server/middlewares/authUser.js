@@ -2,9 +2,11 @@ import jwt from 'jsonwebtoken'
 
 const authUser = async (req, res, next) => {
     console.log('Origin:', req.headers.origin)
-    console.log('Cookies:', req.cookies)
+    console.log('Cookie header:', req.headers.cookie)
+    console.log('Parsed cookies:', req.cookies)
+    console.log('Token exists:', !!req.cookies?.token)
 
-    const { token } = req.cookies
+    const token = req.cookies?.token
 
     if (!token) {
         return res.status(401).json({
@@ -24,7 +26,6 @@ const authUser = async (req, res, next) => {
         }
 
         req.userId = tokenDecode.id
-
         next()
     } catch (error) {
         console.log('JWT Error:', error.message)
