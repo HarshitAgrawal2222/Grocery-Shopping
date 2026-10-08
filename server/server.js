@@ -1,4 +1,3 @@
-
 import cookieParser from 'cookie-parser'
 import express from 'express'
 import cors from 'cors'
@@ -42,6 +41,24 @@ app.post(
 
 app.use(express.json())
 app.use(cookieParser())
+
+app.use((req, res, next) => {
+    if (
+        req.path.startsWith('/api/user') ||
+        req.path.startsWith('/api/cart') ||
+        req.path.startsWith('/api/address') ||
+        req.path.startsWith('/api/order')
+    ) {
+        res.setHeader(
+            'Cache-Control',
+            'no-store, no-cache, must-revalidate, proxy-revalidate'
+        )
+        res.setHeader('Pragma', 'no-cache')
+        res.setHeader('Expires', '0')
+    }
+
+    next()
+})
 
 app.get('/', (req, res) => {
     res.send('API is Working')

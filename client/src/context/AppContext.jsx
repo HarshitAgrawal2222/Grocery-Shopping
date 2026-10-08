@@ -28,7 +28,9 @@ export const AppContextProvider = ({ children }) => {
 
     const fetchSeller = async () => {
         try {
-            const { data } = await axios.get("/api/seller/is-auth");
+            const { data } = await axios.get("/api/seller/is-auth", {
+                withCredentials: true
+            });
 
             if (data.success) {
                 setIsSeller(true);
@@ -43,7 +45,12 @@ export const AppContextProvider = ({ children }) => {
 
     const fetchUser = async () => {
         try {
-            const { data } = await axios.get("/api/user/is-auth");
+            const { data } = await axios.get("/api/user/is-auth", {
+                withCredentials: true,
+                headers: {
+                    "Cache-Control": "no-cache"
+                }
+            });
 
             if (data.success) {
                 setUser(data.user);
@@ -53,6 +60,11 @@ export const AppContextProvider = ({ children }) => {
             }
 
         } catch (error) {
+            console.log(
+                "Auth check error:",
+                error.response?.data || error.message
+            );
+
             setUser(false);
         }
     };
@@ -174,16 +186,24 @@ export const AppContextProvider = ({ children }) => {
 
             try {
 
-                await axios.post("/api/cart/update", {
-                    cartItems
-                });
+                await axios.post(
+                    "/api/cart/update",
+                    {
+                        cartItems
+                    },
+                    {
+                        withCredentials: true
+                    }
+                );
 
             } catch (error) {
 
-                toast.error(
-                    error.response?.data?.message ||
-                    error.message
-                );
+                if (error.response?.status !== 401) {
+                    toast.error(
+                        error.response?.data?.message ||
+                        error.message
+                    );
+                }
 
             }
         };
